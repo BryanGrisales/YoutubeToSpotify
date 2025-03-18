@@ -134,6 +134,8 @@
                     return;
                 }
 
+                // Get token from localStorage
+                const spotifyToken = localStorage.getItem('spotifyToken');
                 if (!spotifyToken) {
                     statusDiv.textContent = 'Please connect to Spotify first';
                     statusDiv.classList.remove('hidden');
@@ -144,7 +146,6 @@
                     transferBtn.disabled = true;
                     statusDiv.textContent = 'Transferring playlist...';
                     statusDiv.classList.remove('hidden');
-                    resultsDiv.classList.add('hidden');
 
                     const response = await fetch('/transfer', {
                         method: 'POST',
@@ -160,17 +161,15 @@
                     const data = await response.json();
                     
                     if (response.ok) {
-                        successMessage.textContent = data.message;
-                        notFoundList.innerHTML = '';
+                        statusDiv.textContent = data.message;
                         if (data.not_found && data.not_found.length > 0) {
-                            data.not_found.forEach(track => {
-                                const li = document.createElement('li');
-                                li.textContent = track;
-                                notFoundList.appendChild(li);
-                            });
+                            notFoundList.innerHTML = data.not_found.map(track => `<li>${track}</li>`).join('');
+                            document.getElementById('results').classList.remove('hidden');
                         }
-                        playlistLink.href = data.playlist_url;
-                        resultsDiv.classList.remove('hidden');
+                        if (data.playlist_url) {
+                            document.getElementById('playlistLink').href = data.playlist_url;
+                            document.getElementById('results').classList.remove('hidden');
+                        }
                     } else {
                         statusDiv.textContent = data.error || 'Error transferring playlist';
                     }

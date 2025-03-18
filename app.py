@@ -86,9 +86,7 @@ def transfer_playlist():
         
         # Extract playlist ID from URL
         playlist_id = None
-        if 'playlist' in yt_playlist_url:
-            playlist_id = yt_playlist_url.split('playlist/')[1].split('?')[0]
-        elif 'list' in yt_playlist_url:
+        if 'list=' in yt_playlist_url:
             playlist_id = yt_playlist_url.split('list=')[1].split('&')[0]
         
         if not playlist_id:
@@ -115,11 +113,9 @@ def transfer_playlist():
 
         # Process each track
         for track in tracks:
-            # Get track details
             title = track['title']
             artist = track['artists'][0]['name'] if track['artists'] else ''
             
-            # Search for track on Spotify
             search_query = f"{title} artist:{artist}"
             search_result = sp.search(search_query, type='track', limit=1)
             
