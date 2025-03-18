@@ -200,12 +200,26 @@
                         statusDiv.textContent = data.message;
                         if (data.not_found && data.not_found.length > 0) {
                             notFoundList.innerHTML = data.not_found.map(track => `<li>${track}</li>`).join('');
-                            document.getElementById('results').classList.remove('hidden');
                         }
                         if (data.playlist_url) {
-                            document.getElementById('playlistLink').href = data.playlist_url;
-                            document.getElementById('results').classList.remove('hidden');
+                            const playlistLink = document.getElementById('playlistLink').querySelector('a');
+                            playlistLink.href = data.playlist_url;
+                            
+                            // Convert web URL to Spotify URI format
+                            const playlistId = data.playlist_url.split('/playlist/')[1];
+                            const spotifyUri = `spotify://playlist/${playlistId}`;
+                            
+                            playlistLink.onclick = (e) => {
+                                e.preventDefault();
+                                // Try to open in Spotify app with proper URI
+                                window.location.href = spotifyUri;
+                                // Fallback to web version after a short delay
+                                setTimeout(() => {
+                                    window.open(data.playlist_url, '_blank');
+                                }, 1000);
+                            };
                         }
+                        document.getElementById('results').classList.remove('hidden');
                     } else {
                         statusDiv.textContent = data.error || 'Error transferring playlist';
                     }
