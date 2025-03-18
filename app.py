@@ -169,7 +169,8 @@ def preview_playlist():
             'title': playlist['title'],
             'tracks': [{
                 'title': track['title'],
-                'artist': track['artists'][0]['name'] if track['artists'] else ''
+                'artist': track['artists'][0]['name'] if track['artists'] else '',
+                'thumbnail': track['thumbnails'][-1]['url'] if track['thumbnails'] else None  # Get highest quality thumbnail
             } for track in playlist['tracks']]
         })
 

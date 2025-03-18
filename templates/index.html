@@ -69,6 +69,34 @@
         
         #previewModal .spotify-container {
             animation: slideIn 0.3s ease-out;
+            max-height: 90vh;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        #previewModal .spotify-container > div:not(:last-child) {
+            flex-shrink: 0;
+        }
+        
+        #previewModal .spotify-container > div:last-child {
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+        
+        #previewModal .spotify-container > div:nth-child(3) {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        #tracksPreview {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            min-height: 0;
         }
         
         @keyframes slideIn {
@@ -85,7 +113,7 @@
 </head>
 <body class="min-h-screen py-8">
     <div id="previewModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
-        <div class="spotify-container max-w-2xl w-full mx-4 rounded-lg shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
+        <div class="spotify-container max-w-2xl w-full mx-4 rounded-lg shadow-2xl p-8">
             <div class="mb-6">
                 <h2 class="text-2xl font-semibold">Preview and Customize</h2>
             </div>
@@ -101,20 +129,20 @@
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">Description</label>
                     <textarea id="playlistDescription" 
-                              class="spotify-input w-full p-3 rounded-lg resize-none h-24"
+                              class="spotify-input w-full p-3 rounded-lg resize-none h-16"
                               placeholder="Add an optional description"></textarea>
                 </div>
             </div>
 
             <!-- Tracks Preview -->
-            <div class="mb-6">
+            <div class="flex-1">
                 <h3 class="font-semibold mb-3">Tracks to Transfer</h3>
-                <div id="tracksPreview" class="max-h-[40vh] overflow-y-auto pr-2">
+                <div id="tracksPreview" class="overflow-y-auto pr-2 h-full">
                     <!-- Tracks will be listed here -->
                 </div>
             </div>
 
-            <div class="flex space-x-4">
+            <div class="flex space-x-4 mt-auto">
                 <button id="cancelTransfer" class="w-1/2 py-3 px-6 rounded-full font-bold border border-gray-600 hover:border-gray-400 transition-colors">
                     Cancel
                 </button>
@@ -251,72 +279,89 @@
             transferBtn.addEventListener('click', async () => {
                 const playlistUrl = playlistUrlInput.value.trim();
                 if (!playlistUrl) {
-                    statusDiv.textContent = 'Please enter a YouTube playlist URL';
-                    statusDiv.classList.remove('hidden');
-                    return;
-                }
-
-                const spotifyToken = localStorage.getItem('spotifyToken');
-                if (!spotifyToken) {
-                    statusDiv.textContent = 'Please connect to Spotify first';
+                    statusDiv.textContent = 'Please enter a YouTube Music playlist URL';
                     statusDiv.classList.remove('hidden');
                     return;
                 }
 
                 try {
-                    transferBtn.disabled = true;
-                    statusDiv.textContent = 'Fetching playlist information...';
-                    statusDiv.classList.remove('hidden');
-
-                    const response = await fetch('/preview', {
+                    // First, get the preview
+                    const previewResponse = await fetch('/preview', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            playlist_url: playlistUrl,
-                            spotify_token: spotifyToken
-                        })
+                        body: JSON.stringify({ playlist_url: playlistUrl })
                     });
 
-                    const data = await response.json();
+                    const previewData = await previewResponse.json();
                     
-                    if (response.ok) {
-                        playlistData = data;
-                        
-                        // Set initial values
-                        document.getElementById('playlistName').value = data.title;
-                        document.getElementById('playlistDescription').value = "";
-                        
-                        // Show tracks preview
-                        const tracksPreview = document.getElementById('tracksPreview');
-                        tracksPreview.innerHTML = data.tracks.map(track => `
-                            <div class="flex items-center py-2 border-b border-gray-700">
-                                <div class="flex-1">
-                                    <div class="font-medium">${track.title}</div>
-                                    <div class="text-sm text-gray-400">${track.artist}</div>
-                                </div>
-                            </div>
-                        `).join('');
-
-                        // Show modal
-                        document.getElementById('previewModal').classList.remove('hidden');
-                        statusDiv.classList.add('hidden');
-                    } else {
-                        statusDiv.textContent = data.error || 'Error fetching playlist';
+                    if (previewData.error) {
+                        throw new Error(previewData.error);
                     }
+
+                    // Store playlist data for later use
+                    playlistData = previewData;
+
+                    // Update preview modal
+                    document.getElementById('playlistName').value = previewData.title;
+                    
+                    // Clear and update tracks preview
+                    const tracksPreview = document.getElementById('tracksPreview');
+                    tracksPreview.innerHTML = '';
+                    
+                    previewData.tracks.forEach((track, index) => {
+                        const trackElement = document.createElement('div');
+                        trackElement.className = 'flex items-center p-3 hover:bg-opacity-50 hover:bg-white rounded-lg transition-colors mb-2';
+                        
+                        // Create thumbnail or fallback icon
+                        const thumbnailContainer = document.createElement('div');
+                        thumbnailContainer.className = 'w-12 h-12 flex-shrink-0 mr-4 rounded-md overflow-hidden bg-gray-800 flex items-center justify-center';
+                        
+                        if (track.thumbnail) {
+                            const img = document.createElement('img');
+                            img.src = track.thumbnail;
+                            img.alt = `${track.title} thumbnail`;
+                            img.className = 'w-full h-full object-cover';
+                            thumbnailContainer.appendChild(img);
+                        } else {
+                            // Music note icon as fallback
+                            thumbnailContainer.innerHTML = `
+                                <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                                </svg>
+                            `;
+                        }
+                        
+                        const textContainer = document.createElement('div');
+                        textContainer.className = 'flex-grow';
+                        textContainer.innerHTML = `
+                            <div class="font-medium">${track.title}</div>
+                            <div class="text-gray-400 text-sm">${track.artist}</div>
+                        `;
+                        
+                        trackElement.appendChild(thumbnailContainer);
+                        trackElement.appendChild(textContainer);
+                        tracksPreview.appendChild(trackElement);
+                    });
+
+                    // Show the preview modal
+                    const previewModal = document.getElementById('previewModal');
+                    previewModal.classList.remove('hidden');
+                    previewModal.classList.add('flex');
+
                 } catch (error) {
                     console.error('Error:', error);
-                    statusDiv.textContent = 'Error fetching playlist. Please try again.';
-                } finally {
-                    transferBtn.disabled = false;
+                    statusDiv.textContent = `Error: ${error.message}`;
+                    statusDiv.classList.remove('hidden');
                 }
             });
 
-            // Add event listeners for modal controls
+            // Handle cancel button in preview modal
             document.getElementById('cancelTransfer').addEventListener('click', () => {
-                document.getElementById('previewModal').classList.add('hidden');
-                statusDiv.classList.add('hidden');
+                const previewModal = document.getElementById('previewModal');
+                previewModal.classList.add('hidden');
+                previewModal.classList.remove('flex');
             });
 
             // Close modal when clicking outside
