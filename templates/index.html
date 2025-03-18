@@ -86,7 +86,32 @@
                 try {
                     const response = await fetch('/auth');
                     const data = await response.json();
-                    window.location.href = data.auth_url;
+                    
+                    if (data.error) {
+                        statusDiv.textContent = `Error: ${data.error}`;
+                        statusDiv.classList.remove('hidden');
+                        return;
+                    }
+                    
+                    // Open Spotify auth in a popup window
+                    const popup = window.open(
+                        data.auth_url,
+                        'Spotify Login',
+                        'width=800,height=600'
+                    );
+                    
+                    // Listen for messages from the popup
+                    window.addEventListener('message', function(event) {
+                        if (event.data === 'spotify-auth-success') {
+                            statusDiv.textContent = 'Successfully connected to Spotify!';
+                            statusDiv.classList.remove('hidden');
+                            document.getElementById('spotifyAuth').classList.add('hidden');
+                            document.getElementById('spotifyConnected').classList.remove('hidden');
+                            if (popup) {
+                                popup.close();
+                            }
+                        }
+                    });
                 } catch (error) {
                     console.error('Error:', error);
                     statusDiv.textContent = 'Error connecting to Spotify. Please try again.';

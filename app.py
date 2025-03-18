@@ -16,6 +16,14 @@ SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 SPOTIFY_REDIRECT_URI = 'http://localhost:5000/callback'
 
+# Debug logging
+print(f"Client ID: {SPOTIFY_CLIENT_ID}")
+print(f"Client Secret: {'*' * len(SPOTIFY_CLIENT_SECRET) if SPOTIFY_CLIENT_SECRET else 'None'}")
+print(f"Redirect URI: {SPOTIFY_REDIRECT_URI}")
+
+if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+    raise ValueError("Missing Spotify credentials in .env file")
+
 # Initialize Spotify OAuth
 sp_oauth = SpotifyOAuth(
     client_id=SPOTIFY_CLIENT_ID,
@@ -32,17 +40,32 @@ def index():
 def auth():
     try:
         auth_url = sp_oauth.get_authorize_url()
+        print(f"Generated auth URL: {auth_url}")  # Debug logging
         return jsonify({'auth_url': auth_url})
     except Exception as e:
+        print(f"Error in /auth: {str(e)}")  # Debug logging
         return jsonify({'error': str(e)}), 500
 
 @app.route('/callback')
 def callback():
     try:
         code = request.args.get('code')
+        print(f"Received code in callback: {code[:10]}...")  # Debug logging (first 10 chars only for security)
+        
+        if not code:
+            error = request.args.get('error', 'No code received')
+            print(f"Error in callback: {error}")  # Debug logging
+            return render_template('index.html', error=error)
+
         token_info = sp_oauth.get_access_token(code)
+        print("Successfully obtained token")  # Debug logging
+        
+        # Store token in session
+        session['spotify_token'] = token_info
+        
         return render_template('callback.html', token_info=token_info)
     except Exception as e:
+        print(f"Error in /callback: {str(e)}")  # Debug logging
         return render_template('index.html', error=str(e))
 
 @app.route('/transfer', methods=['POST'])
