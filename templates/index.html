@@ -37,9 +37,94 @@
             background-color: #282828;
             border: 1px solid #383838;
         }
+        
+        /* Custom scrollbar for the tracks preview */
+        #tracksPreview::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #tracksPreview::-webkit-scrollbar-track {
+            background: #181818;
+            border-radius: 4px;
+        }
+        
+        #tracksPreview::-webkit-scrollbar-thumb {
+            background: #404040;
+            border-radius: 4px;
+        }
+        
+        #tracksPreview::-webkit-scrollbar-thumb:hover {
+            background: #505050;
+        }
+        
+        /* Animation for modal */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        #previewModal {
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        #previewModal .spotify-container {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen py-8">
+    <div id="previewModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="spotify-container max-w-2xl w-full mx-4 rounded-lg shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
+            <div class="mb-6">
+                <h2 class="text-2xl font-semibold">Preview and Customize</h2>
+            </div>
+            
+            <!-- Playlist Info -->
+            <div class="mb-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Playlist Name</label>
+                    <input type="text" id="playlistName" 
+                           class="spotify-input w-full p-3 rounded-lg"
+                           placeholder="Playlist name">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Description</label>
+                    <textarea id="playlistDescription" 
+                              class="spotify-input w-full p-3 rounded-lg resize-none h-24"
+                              placeholder="Add an optional description"></textarea>
+                </div>
+            </div>
+
+            <!-- Tracks Preview -->
+            <div class="mb-6">
+                <h3 class="font-semibold mb-3">Tracks to Transfer</h3>
+                <div id="tracksPreview" class="max-h-[40vh] overflow-y-auto pr-2">
+                    <!-- Tracks will be listed here -->
+                </div>
+            </div>
+
+            <div class="flex space-x-4">
+                <button id="cancelTransfer" class="w-1/2 py-3 px-6 rounded-full font-bold border border-gray-600 hover:border-gray-400 transition-colors">
+                    Cancel
+                </button>
+                <button id="confirmTransfer" class="spotify-button w-1/2 text-white py-3 px-6 rounded-full font-bold">
+                    Create Playlist
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="container mx-auto px-4">
         <div class="max-w-2xl mx-auto spotify-container rounded-lg shadow-xl p-8">
             <h1 class="text-4xl font-bold text-center mb-12 text-white">YouTube to Spotify Playlist Transfer</h1>
@@ -75,44 +160,6 @@
 
                 <!-- Status Message -->
                 <div id="status" class="text-center text-gray-300 hidden"></div>
-
-                <!-- Preview Section -->
-                <div id="previewSection" class="hidden spotify-section p-6 rounded-lg">
-                    <h2 class="text-2xl font-semibold mb-4">Preview and Customize</h2>
-                    
-                    <!-- Playlist Info -->
-                    <div class="mb-6">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium mb-2">Playlist Name</label>
-                            <input type="text" id="playlistName" 
-                                   class="spotify-input w-full p-3 rounded-lg"
-                                   placeholder="Playlist name">
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium mb-2">Description</label>
-                            <textarea id="playlistDescription" 
-                                      class="spotify-input w-full p-3 rounded-lg resize-none h-24"
-                                      placeholder="Playlist description"></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Tracks Preview -->
-                    <div class="mb-6">
-                        <h3 class="font-semibold mb-3">Tracks to Transfer</h3>
-                        <div id="tracksPreview" class="max-h-96 overflow-y-auto">
-                            <!-- Tracks will be listed here -->
-                        </div>
-                    </div>
-
-                    <div class="flex space-x-4">
-                        <button id="cancelTransfer" class="w-1/2 py-3 px-6 rounded-full font-bold border border-gray-600 hover:border-gray-400 transition-colors">
-                            Cancel
-                        </button>
-                        <button id="confirmTransfer" class="spotify-button w-1/2 text-white py-3 px-6 rounded-full font-bold">
-                            Create Playlist
-                        </button>
-                    </div>
-                </div>
 
                 <!-- Results Section -->
                 <div id="results" class="hidden spotify-section p-6 rounded-lg">
@@ -237,9 +284,9 @@
                     if (response.ok) {
                         playlistData = data;
                         
-                        // Set initial values without the "(from YouTube Music)" suffix
+                        // Set initial values
                         document.getElementById('playlistName').value = data.title;
-                        document.getElementById('playlistDescription').value = "";  // Empty default description
+                        document.getElementById('playlistDescription').value = "";
                         
                         // Show tracks preview
                         const tracksPreview = document.getElementById('tracksPreview');
@@ -252,9 +299,8 @@
                             </div>
                         `).join('');
 
-                        // Show preview section
-                        document.getElementById('previewSection').classList.remove('hidden');
-                        document.getElementById('results').classList.add('hidden');
+                        // Show modal
+                        document.getElementById('previewModal').classList.remove('hidden');
                         statusDiv.classList.add('hidden');
                     } else {
                         statusDiv.textContent = data.error || 'Error fetching playlist';
@@ -267,9 +313,23 @@
                 }
             });
 
+            // Add event listeners for modal controls
+            document.getElementById('cancelTransfer').addEventListener('click', () => {
+                document.getElementById('previewModal').classList.add('hidden');
+                statusDiv.classList.add('hidden');
+            });
+
+            // Close modal when clicking outside
+            document.getElementById('previewModal').addEventListener('click', (e) => {
+                if (e.target.id === 'previewModal') {
+                    document.getElementById('previewModal').classList.add('hidden');
+                }
+            });
+
+            // Update confirm transfer to hide modal
             document.getElementById('confirmTransfer').addEventListener('click', async () => {
                 try {
-                    const spotifyToken = localStorage.getItem('spotifyToken');
+                    document.getElementById('previewModal').classList.add('hidden');
                     statusDiv.textContent = 'Creating playlist...';
                     statusDiv.classList.remove('hidden');
 
@@ -290,7 +350,6 @@
                     const data = await response.json();
                     
                     if (response.ok) {
-                        document.getElementById('previewSection').classList.add('hidden');
                         handleTransferSuccess(data);
                     } else {
                         statusDiv.textContent = data.error || 'Error creating playlist';
@@ -299,11 +358,6 @@
                     console.error('Error:', error);
                     statusDiv.textContent = 'Error creating playlist. Please try again.';
                 }
-            });
-
-            document.getElementById('cancelTransfer').addEventListener('click', () => {
-                document.getElementById('previewSection').classList.add('hidden');
-                statusDiv.classList.add('hidden');
             });
 
             function handleTransferSuccess(data) {
