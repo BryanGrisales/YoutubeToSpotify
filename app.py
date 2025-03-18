@@ -74,6 +74,8 @@ def transfer_playlist():
         data = request.json
         yt_playlist_url = data.get('playlist_url')
         spotify_token = data.get('spotify_token')
+        playlist_name = data.get('playlist_name')  # Get custom name
+        playlist_description = data.get('playlist_description')  # Get custom description
         
         if not yt_playlist_url or not spotify_token:
             return jsonify({'error': 'Missing required parameters'}), 400
@@ -94,16 +96,15 @@ def transfer_playlist():
 
         # Get playlist details from YouTube Music
         playlist = ytmusic.get_playlist(playlist_id)
-        playlist_name = playlist['title']
         tracks = playlist['tracks']
 
-        # Create new Spotify playlist
+        # Create new Spotify playlist with custom name and description
         user_id = sp.current_user()['id']
         spotify_playlist = sp.user_playlist_create(
             user_id,
-            f"{playlist_name} (from YouTube Music)",
+            playlist_name,  # Use custom name
             public=False,
-            description="Transferred from YouTube Music"
+            description=playlist_description  # Use custom description
         )
 
         # Track statistics
@@ -136,6 +137,40 @@ def transfer_playlist():
             'message': f'Successfully transferred {len(found_tracks)} tracks to Spotify',
             'not_found': not_found_tracks,
             'playlist_url': spotify_playlist['external_urls']['spotify']
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/preview', methods=['POST'])
+def preview_playlist():
+    try:
+        data = request.json
+        yt_playlist_url = data.get('playlist_url')
+        
+        if not yt_playlist_url:
+            return jsonify({'error': 'Missing playlist URL'}), 400
+
+        # Initialize YTMusic
+        ytmusic = YTMusic()
+        
+        # Extract playlist ID from URL
+        playlist_id = None
+        if 'list=' in yt_playlist_url:
+            playlist_id = yt_playlist_url.split('list=')[1].split('&')[0]
+        
+        if not playlist_id:
+            return jsonify({'error': 'Invalid YouTube Music playlist URL'}), 400
+
+        # Get playlist details from YouTube Music
+        playlist = ytmusic.get_playlist(playlist_id)
+        
+        return jsonify({
+            'title': playlist['title'],
+            'tracks': [{
+                'title': track['title'],
+                'artist': track['artists'][0]['name'] if track['artists'] else ''
+            } for track in playlist['tracks']]
         })
 
     except Exception as e:

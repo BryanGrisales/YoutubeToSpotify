@@ -76,6 +76,44 @@
                 <!-- Status Message -->
                 <div id="status" class="text-center text-gray-300 hidden"></div>
 
+                <!-- Preview Section -->
+                <div id="previewSection" class="hidden spotify-section p-6 rounded-lg">
+                    <h2 class="text-2xl font-semibold mb-4">Preview and Customize</h2>
+                    
+                    <!-- Playlist Info -->
+                    <div class="mb-6">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Playlist Name</label>
+                            <input type="text" id="playlistName" 
+                                   class="spotify-input w-full p-3 rounded-lg"
+                                   placeholder="Playlist name">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">Description</label>
+                            <textarea id="playlistDescription" 
+                                      class="spotify-input w-full p-3 rounded-lg resize-none h-24"
+                                      placeholder="Playlist description"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Tracks Preview -->
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-3">Tracks to Transfer</h3>
+                        <div id="tracksPreview" class="max-h-96 overflow-y-auto">
+                            <!-- Tracks will be listed here -->
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button id="cancelTransfer" class="w-1/2 py-3 px-6 rounded-full font-bold border border-gray-600 hover:border-gray-400 transition-colors">
+                            Cancel
+                        </button>
+                        <button id="confirmTransfer" class="spotify-button w-1/2 text-white py-3 px-6 rounded-full font-bold">
+                            Create Playlist
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Results Section -->
                 <div id="results" class="hidden spotify-section p-6 rounded-lg">
                     <h2 class="text-2xl font-semibold mb-4">Transfer Results</h2>
@@ -109,6 +147,7 @@
             const playlistLink = document.getElementById('playlistLink');
 
             let spotifyToken = null;
+            let playlistData = null;
 
             // Check for stored token
             const storedToken = localStorage.getItem('spotifyToken');
@@ -170,7 +209,6 @@
                     return;
                 }
 
-                // Get token from localStorage
                 const spotifyToken = localStorage.getItem('spotifyToken');
                 if (!spotifyToken) {
                     statusDiv.textContent = 'Please connect to Spotify first';
@@ -180,10 +218,10 @@
 
                 try {
                     transferBtn.disabled = true;
-                    statusDiv.textContent = 'Transferring playlist...';
+                    statusDiv.textContent = 'Fetching playlist information...';
                     statusDiv.classList.remove('hidden');
 
-                    const response = await fetch('/transfer', {
+                    const response = await fetch('/preview', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -197,39 +235,97 @@
                     const data = await response.json();
                     
                     if (response.ok) {
-                        statusDiv.textContent = data.message;
-                        if (data.not_found && data.not_found.length > 0) {
-                            notFoundList.innerHTML = data.not_found.map(track => `<li>${track}</li>`).join('');
-                        }
-                        if (data.playlist_url) {
-                            const playlistLink = document.getElementById('playlistLink').querySelector('a');
-                            playlistLink.href = data.playlist_url;
-                            
-                            // Convert web URL to Spotify URI format
-                            const playlistId = data.playlist_url.split('/playlist/')[1];
-                            const spotifyUri = `spotify://playlist/${playlistId}`;
-                            
-                            playlistLink.onclick = (e) => {
-                                e.preventDefault();
-                                // Try to open in Spotify app with proper URI
-                                window.location.href = spotifyUri;
-                                // Fallback to web version after a short delay
-                                setTimeout(() => {
-                                    window.open(data.playlist_url, '_blank');
-                                }, 1000);
-                            };
-                        }
-                        document.getElementById('results').classList.remove('hidden');
+                        playlistData = data;
+                        
+                        // Set initial values without the "(from YouTube Music)" suffix
+                        document.getElementById('playlistName').value = data.title;
+                        document.getElementById('playlistDescription').value = "";  // Empty default description
+                        
+                        // Show tracks preview
+                        const tracksPreview = document.getElementById('tracksPreview');
+                        tracksPreview.innerHTML = data.tracks.map(track => `
+                            <div class="flex items-center py-2 border-b border-gray-700">
+                                <div class="flex-1">
+                                    <div class="font-medium">${track.title}</div>
+                                    <div class="text-sm text-gray-400">${track.artist}</div>
+                                </div>
+                            </div>
+                        `).join('');
+
+                        // Show preview section
+                        document.getElementById('previewSection').classList.remove('hidden');
+                        document.getElementById('results').classList.add('hidden');
+                        statusDiv.classList.add('hidden');
                     } else {
-                        statusDiv.textContent = data.error || 'Error transferring playlist';
+                        statusDiv.textContent = data.error || 'Error fetching playlist';
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    statusDiv.textContent = 'Error transferring playlist. Please try again.';
+                    statusDiv.textContent = 'Error fetching playlist. Please try again.';
                 } finally {
                     transferBtn.disabled = false;
                 }
             });
+
+            document.getElementById('confirmTransfer').addEventListener('click', async () => {
+                try {
+                    const spotifyToken = localStorage.getItem('spotifyToken');
+                    statusDiv.textContent = 'Creating playlist...';
+                    statusDiv.classList.remove('hidden');
+
+                    const response = await fetch('/transfer', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            playlist_url: playlistUrlInput.value.trim(),
+                            spotify_token: spotifyToken,
+                            playlist_name: document.getElementById('playlistName').value,
+                            playlist_description: document.getElementById('playlistDescription').value,
+                            tracks: playlistData.tracks
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        document.getElementById('previewSection').classList.add('hidden');
+                        handleTransferSuccess(data);
+                    } else {
+                        statusDiv.textContent = data.error || 'Error creating playlist';
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    statusDiv.textContent = 'Error creating playlist. Please try again.';
+                }
+            });
+
+            document.getElementById('cancelTransfer').addEventListener('click', () => {
+                document.getElementById('previewSection').classList.add('hidden');
+                statusDiv.classList.add('hidden');
+            });
+
+            function handleTransferSuccess(data) {
+                statusDiv.textContent = data.message;
+                if (data.not_found && data.not_found.length > 0) {
+                    const notFoundList = document.getElementById('notFoundList');
+                    notFoundList.innerHTML = data.not_found.map(track => `<li>${track}</li>`).join('');
+                }
+                if (data.playlist_url) {
+                    const playlistLink = document.getElementById('playlistLink').querySelector('a');
+                    const playlistId = data.playlist_url.split('/playlist/')[1];
+                    playlistLink.href = data.playlist_url;
+                    playlistLink.onclick = (e) => {
+                        e.preventDefault();
+                        window.location.href = `spotify://playlist/${playlistId}`;
+                        setTimeout(() => {
+                            window.open(data.playlist_url, '_blank');
+                        }, 1000);
+                    };
+                }
+                document.getElementById('results').classList.remove('hidden');
+            }
         });
     </script>
 </body>
