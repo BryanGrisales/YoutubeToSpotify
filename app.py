@@ -16,7 +16,9 @@ SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID')
 SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET')
 
 # Dynamic redirect URI based on environment
-if os.environ.get('RAILWAY_STATIC_URL'):
+if os.environ.get('RENDER_EXTERNAL_URL'):
+    SPOTIFY_REDIRECT_URI = f"{os.environ.get('RENDER_EXTERNAL_URL')}/callback"
+elif os.environ.get('RAILWAY_STATIC_URL'):
     SPOTIFY_REDIRECT_URI = f"https://{os.environ.get('RAILWAY_STATIC_URL')}/callback"
 else:
     SPOTIFY_REDIRECT_URI = 'http://localhost:5000/callback'
