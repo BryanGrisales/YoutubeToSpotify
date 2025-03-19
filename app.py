@@ -9,20 +9,26 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Required for session management
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
 # Spotify API credentials
-SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
-SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
-SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:5000/callback'
+SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID')
+SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET')
+
+# Dynamic redirect URI based on environment
+if os.environ.get('RAILWAY_STATIC_URL'):
+    SPOTIFY_REDIRECT_URI = f"https://{os.environ.get('RAILWAY_STATIC_URL')}/callback"
+else:
+    SPOTIFY_REDIRECT_URI = 'http://localhost:5000/callback'
 
 # Debug logging
-print(f"Client ID: {SPOTIFY_CLIENT_ID}")
-print(f"Client Secret: {'*' * len(SPOTIFY_CLIENT_SECRET) if SPOTIFY_CLIENT_SECRET else 'None'}")
-print(f"Redirect URI: {SPOTIFY_REDIRECT_URI}")
+if os.environ.get('FLASK_DEBUG'):
+    print(f"Client ID: {SPOTIFY_CLIENT_ID}")
+    print(f"Client Secret: {'*' * len(SPOTIFY_CLIENT_SECRET) if SPOTIFY_CLIENT_SECRET else 'None'}")
+    print(f"Redirect URI: {SPOTIFY_REDIRECT_URI}")
 
 if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
-    raise ValueError("Missing Spotify credentials in .env file")
+    raise ValueError("Missing Spotify credentials in environment variables")
 
 # Initialize Spotify OAuth
 sp_oauth = SpotifyOAuth(
